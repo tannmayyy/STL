@@ -1,39 +1,49 @@
 import streamlit as st
-from itertools import chain
-import sac  # Assuming sac is a valid library/module
+import snowflake.connector
+from concurrent.futures import ThreadPoolExecutor
 
-# Initialize session state
-if "selected_columns" not in st.session_state:
-    st.session_state.selected_columns = []
-if "default_selection" not in st.session_state:
-    st.session_state.default_selection = []
+# Function to get Snowflake connection
+def get_snowflake_connection():
+    return snowflake.connector.connect(
+        user='YOUR_USER',
+        password='YOUR_PASSWORD',
+        account='YOUR_ACCOUNT',
+        warehouse='YOUR_WAREHOUSE',
+        database='YOUR_DATABASE',
+        schema='YOUR_SCHEMA'
+    )
 
-# Multiselect dropdown
-st.session_state.selected_columns = st.multiselect(
-    "Select features", 
-    [col for col in trade_view_columns], 
-    default=st.session_state.selected_columns  # Retain previous selections
-)
+# Function to execute queries
+def execute_query(query, conn):
+    with conn.cursor() as cursor:
+        cursor.execute(query)
+        return cursor.fetchall()
 
-# Prepare tree structure with checkboxes checked based on selected_columns
-items_category_tree = {
-    col: {"label": col, "checked": col in st.session_state.selected_columns} 
-    for col in trade_view_columns
-}
+# Check if query is built
+if st.session_state.get('query_built', False):
 
-# Render sac.tree with checkboxes reflecting selected columns
-new_selection = sac.tree(
-    items=items_category_tree, 
-    label="Features", 
-    open_all=False, 
-    checkbox=True, 
-    key="feature_selector"
-)
+    if st.button("Execute Query"):
+        with st.spinner("Executing query..."):
+            conn = get_snowflake_connection()
+            
+            if conn:
+                # Run queries in parallel
+                with ThreadPoolExecutor(max_workers=2) as executor:
+                    future_count = executor.submit(execute_query, st.session_state.pre_result, conn)
+                    future_data = executor.submit(execute_query, st.session_state.sql_query, conn)
 
-# Convert selection to a list
-new_selection = list(chain(st.session_state.default_selection, new_selection))
+                    result = future_count.result()
+                    data = future_data.result()
 
-# Update session state only if selection changes
-if new_selection != st.session_state.selected_columns:
-    st.session_state.selected_columns = new_selection
-    print(st.session_state.selected_columns)  # Debugging output
+                # Get total rows
+                total_rows = len(result) if result else 0
+                st.write(total_rows)
+
+                # Print results
+                if data:
+                    print("True")
+                else:
+                    print("False")
+                    st.warning("No data to preview with this query!")
+
+            conn.close()
