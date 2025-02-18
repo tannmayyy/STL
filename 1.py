@@ -34,41 +34,35 @@ for column in st.session_state.filter_columns:
         config['fields'][column] = {
             'label': column,
             'type': 'date',
-            'operators': ['less', 'equal', 'between', 'not_between'],
-            'mainWidgetProps': {
-                'start_date': {
-                    'type': 'date',
-                    'label': f"Start date for {column}",
-                    'operators': ['less', 'less_equal', 'greater', 'greater_equal', 'equal', 'between', 'not_between']
-                },
-                'end_date': {
-                    'type': 'date',
-                    'label': f"End date for {column}"
-                }
-            }
+            'operators': ['less', 'equal', 'between', 'not_between']
         }
     elif column in list_columns:
-        # Allow users to manually enter values as a comma-separated string
-        user_input = st.text_area(f"Enter values for {column} (comma-separated)", "")
-
-        # Convert user input to a list of values
-        list_values = [value.strip() for value in user_input.split(",") if value.strip()]
+        # Dropdown selection for operators
+        selected_operator = st.selectbox(
+            f"Select operator for {column}",
+            ["=", "in", "not in"]
+        )
 
         config['fields'][column] = {
             'label': column,
             'type': 'select',
-            'operators': ['in', 'not_in'],
+            'operators': ['=', 'in', 'not in'],
             'mainWidgetProps': {
-                'customInput': True,  # Allows users to enter values manually
-                'valuePlaceholder': 'Enter multiple values separated by commas'
+                'valuePlaceholder': 'Select values'
             }
         }
 
-        # If the user has entered values, add them dynamically
-        if list_values:
-            config['fields'][column]['fieldSettings'] = {
-                'listValues': [{'value': val, 'title': val} for val in list_values]
-            }
+        # Show text input **only if "in" or "not in" is selected**
+        if selected_operator in ["in", "not in"]:
+            user_input = st.text_area(
+                f"Enter values for {column} (comma-separated)", ""
+            )
+            list_values = [value.strip() for value in user_input.split(",") if value.strip()]
+
+            if list_values:
+                config['fields'][column]['fieldSettings'] = {
+                    'listValues': [{'value': val, 'title': val} for val in list_values]
+                }
     else:
         # Default input for other columns
         config['fields'][column] = {
