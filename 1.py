@@ -48,24 +48,27 @@ for column in st.session_state.filter_columns:
             }
         }
     elif column in list_columns:
-        # Dropdown selection with "in" and "not in"
+        # Allow users to manually enter values as a comma-separated string
+        user_input = st.text_area(f"Enter values for {column} (comma-separated)", "")
+
+        # Convert user input to a list of values
+        list_values = [value.strip() for value in user_input.split(",") if value.strip()]
+
         config['fields'][column] = {
             'label': column,
             'type': 'select',
             'operators': ['in', 'not_in'],
-            'fieldSettings': {
-                'listValues': [
-                    {'value': 'USA', 'title': 'USA'},
-                    {'value': 'UK', 'title': 'UK'},
-                    {'value': 'India', 'title': 'India'},
-                    {'value': 'Germany', 'title': 'Germany'}
-                ]
-            },
             'mainWidgetProps': {
                 'customInput': True,  # Allows users to enter values manually
                 'valuePlaceholder': 'Enter multiple values separated by commas'
             }
         }
+
+        # If the user has entered values, add them dynamically
+        if list_values:
+            config['fields'][column]['fieldSettings'] = {
+                'listValues': [{'value': val, 'title': val} for val in list_values]
+            }
     else:
         # Default input for other columns
         config['fields'][column] = {
