@@ -1,70 +1,123 @@
 import streamlit as st
 
-# Define columns and their types
-columns = {"department": "TEXT", "salary": "INTEGER", "age": "INTEGER", "city": "TEXT"}
+# Define column metadata
+columns = {
+    "name": {"type": "TEXT"},
+    "department": {"type": "TEXT"},
+    "salary": {"type": "INTEGER"},
+    "hire_date": {"type": "TEXT"},
+}
 
 # Operator mappings
 OPERATORS = {
-    "TEXT": ["IN", "NOT IN"],
-    "INTEGER": ["IN", "NOT IN"]
+    "TEXT": ["=", "!=", "IN", "NOT IN", "LIKE", "IS NULL"],
+    "INTEGER": ["=", "!=", ">", "<", ">=", "<=", "BETWEEN", "IN", "NOT IN", "IS NULL"]
 }
 
-# Initialize session state
-if 'conditions' not in st.session_state:
+# Initialize session state for conditions
+if "conditions" not in st.session_state:
     st.session_state.conditions = []
 
+st.title("Advanced SQL Query Builder")
+st.subheader("Build Complex Filters")
+
+
 def add_condition():
-    st.session_state.conditions.append({
-        'column': None,
-        'operator': None,
-        'value': None
-    })
+    st.session_state.conditions.append(
+        {"column": None, "operator": None, "value": None, "logic": "AND"}
+    )
+
 
 def remove_condition(index):
     del st.session_state.conditions[index]
 
-def get_value_input(col_type: str, operator: str, index: int):
-    return st.text_input("Enter comma-separated values", key=f"value_{index}")
 
-st.title("SQL Query Builder")
-st.subheader("Add Filters")
+def get_value_input(i, col_type: str, operator: str):
+    """Helper function to generate correct value input field based on type and operator."""
+    if operator in ["IN", "NOT IN"]:
+        return st.text_input("Enter comma-separated values", key=f"value_{i}")
+    elif operator == "BETWEEN":
+        return st.text_input("Enter two values separated by comma", key=f"value_{i}")
+    elif operator == "IS NULL":
+        return None
+    else:
+        if col_type == "TEXT":
+            return st.text_input("Value", key=f"value_{i}")
+        else:
+            return st.number_input("Value", key=f"value_{i}")
 
-with st.expander("➕ Add Condition", expanded=True):
+
+# UI for condition builder
+with st.expander("➕ Add Condition Group", expanded=True):
     for i, condition in enumerate(st.session_state.conditions):
-        col1, col2, col3, col4 = st.columns([2, 2, 3, 1])
-        
+        col1, col2, col3, col4, col5 = st.columns([2, 2, 3, 2, 1])
+
         with col1:
-            column = st.selectbox("Column", options=list(columns.keys()), key=f"col_{i}")
-        
+            condition["column"] = st.selectbox(
+                "Column",
+                list(columns.keys()),
+                index=list(columns.keys()).index(condition["column"])
+                if condition["column"] else 0,
+                key=f"col_{i}",
+            )
+
         with col2:
-            operator = st.selectbox("Operator", options=OPERATORS[columns[column]], key=f"op_{i}")
-        
+            condition["operator"] = st.selectbox(
+                "Operator",
+                OPERATORS[columns[condition['column']]['type']],
+                key=f"op_{i}",
+            )
+
         with col3:
-            value = get_value_input(columns[column], operator, i)
-        
+            condition["value"] = get_value_input(i, columns[condition["column"]]["type"], condition["operator"])
+
         with col4:
+            if i > 0:
+                condition["logic"] = st.selectbox("Logic", ["AND", "OR"], key=f"logic_{i}")
+
+        with col5:
             st.button("❌", on_click=remove_condition, args=(i,), key=f"del_{i}")
-    
+
     st.button("Add Condition", on_click=add_condition)
 
+
 def build_where_clause():
+    """Constructs the WHERE clause from conditions."""
     clauses = []
     for i, condition in enumerate(st.session_state.conditions):
-        col = condition['column']
-        op = condition['operator']
-        val = condition['value']
-        
-        if not col or not op or not val:
-            continue
-        
-        values = [f"'{v.strip()}'" if columns[col] == 'TEXT' else v.strip() for v in val.split(',')]
-        val_str = f"({', '.join(values)})"
-        
-        clauses.append(f"{col} {op} {val_str}")
-    
-    return 'WHERE ' + ' AND '.join(clauses) if clauses else ''
+        col = condition.get("column")
+        op = condition.get("operator")
+        val = condition.get("value")
+        logic = condition.get("logic", "") if i > 0 else ""
 
+        if not col or not op or (val is None and op != "IS NULL"):
+            continue
+
+        # Handling special cases
+        if op == "IS NULL":
+            clauses.append(f"{logic} {col} IS NULL")
+            continue
+
+        # Handling IN and NOT IN operators
+        if op in ["IN", "NOT IN"]:
+            values = [f"'{v.strip()}'" if columns[col]["type"] == "TEXT" else v.strip()
+                      for v in val.split(",")]
+            val_str = f"({', '.join(values)})"
+        elif op == "BETWEEN":
+            values = val.split(",")
+            if len(values) == 2:
+                val_str = f"{values[0].strip()} AND {values[1].strip()}"
+        else:
+            val_str = f"'{val}'" if columns[col]["type"] == "TEXT" else val
+
+        clauses.append(f"{logic} {col} {op} {val_str}")
+
+    return "WHERE " + " ".join(clauses) if clauses else ""
+
+
+# Button to build query
 if st.button("Build Query"):
     where_clause = build_where_clause()
     query = f"SELECT * FROM Employees {where_clause}"
-    st.code(query)
+    
+    st.code(query)  # Display final query
