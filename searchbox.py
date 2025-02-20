@@ -12,8 +12,7 @@ def build_sql_query(table_name, filters):
             values = "', '".join(map(str, condition["values"]))
             conditions.append(f"{column} NOT IN ('{values}')")
         elif condition["operator"] in [">", "<", "=", "!="]:
-            numeric_values = ", ".join(map(str, condition["values"]))
-            conditions.append(f"{column} {condition['operator']} {numeric_values}")
+            conditions.append(f"{column} {condition['operator']} {condition['values'][0]}")
     
     if conditions:
         query += " WHERE " + " AND ".join(conditions)
@@ -27,14 +26,19 @@ table_name = st.text_input("Enter Table Name", "Employees")
 string_columns = ["department", "city"]
 numeric_columns = ["salary", "age"]
 
-selected_column = st.selectbox("Select Column", string_columns + numeric_columns)
+col1, col2, col3 = st.columns([2, 1, 3])
 
-if selected_column in string_columns:
-    operator = st.selectbox("Select Operator", ["IN", "NOT IN"])
-else:
-    operator = st.selectbox("Select Operator", [">", "<", "=", "!="])
+with col1:
+    selected_column = st.selectbox("Select Column", string_columns + numeric_columns)
 
-values_input = st.text_area("Enter Values (comma separated)")
+with col2:
+    if selected_column in string_columns:
+        operator = st.selectbox("Operator", ["IN", "NOT IN"])
+    else:
+        operator = st.selectbox("Operator", [">", "<", "=", "!="])
+
+with col3:
+    values_input = st.text_area("Enter Values (comma separated)")
 
 if st.button("Generate Query"):
     values = [v.strip() for v in values_input.split(",") if v.strip()]
