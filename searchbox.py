@@ -1,12 +1,12 @@
 import streamlit as st
 
-# Define column metadata
-columns = {
-    "name": {"type": "TEXT"},
-    "department": {"type": "TEXT"},
-    "salary": {"type": "INTEGER"},
-    "hire_date": {"type": "TEXT"},
-}
+# Define lists for columns
+text_columns = ["name", "department", "hire_date", "city", "email", "phone_number"]  # Add all 100 text columns
+integer_columns = ["salary", "age", "experience_years", "project_count", "bonus", "rating"]  # Add all 100 integer columns
+
+# Generate columns dictionary
+columns = {col: {"type": "TEXT"} for col in text_columns}
+columns.update({col: {"type": "INTEGER"} for col in integer_columns})
 
 # Operator mappings
 OPERATORS = {
