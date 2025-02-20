@@ -1,7 +1,6 @@
 import streamlit as st
 import sqlite3
 from sqlite3 import Error
-from typing import List, Dict, Union
 
 # Create in-memory SQLite database
 conn = sqlite3.connect(':memory:')
@@ -35,73 +34,47 @@ columns = {col[1]: {'type': col[2]} for col in c.fetchall() if col[1] != 'id'}
 
 # Operator mappings
 OPERATORS = {
-    'TEXT': ['=', '!=', 'IN', 'NOT IN', 'LIKE', 'IS NULL'],
-    'INTEGER': ['=', '!=', '>', '<', '>=', '<=', 'BETWEEN', 'IN', 'NOT IN', 'IS NULL'],
-    'NUMERIC': ['=', '!=', '>', '<', '>=', '<=', 'BETWEEN', 'IN', 'NOT IN', 'IS NULL']
+    'TEXT': ['IN', 'NOT IN'],
+    'INTEGER': ['IN', 'NOT IN', '>', '<', '=', '!=']
 }
 
 # Initialize session state
 if 'conditions' not in st.session_state:
     st.session_state.conditions = []
 
-st.title("Advanced SQL Query Builder")
-st.subheader("Build Complex Filters")
-
 def add_condition():
     st.session_state.conditions.append({
         'column': None,
         'operator': None,
-        'value': None,
-        'logic': 'AND'
+        'value': None
     })
 
 def remove_condition(index):
     del st.session_state.conditions[index]
 
-def get_value_input(col_type: str, operator: str) -> Union[str, float, tuple]:
-    if operator in ['IN', 'NOT IN']:
-        return st.text_input("Enter comma-separated values", key=f"value_{i}")
-    elif operator == 'BETWEEN':
-        return st.text_input("Enter two values separated by comma", key=f"value_{i}")
-    elif operator == 'IS NULL':
-        return None
-    else:
-        if col_type == 'TEXT':
-            return st.text_input("Value", key=f"value_{i}")
-        else:
-            return st.number_input("Value", key=f"value_{i}")
+def get_value_input(col_type: str, operator: str, index: int):
+    return st.text_input("Enter comma-separated values", key=f"value_{index}")
 
-# Condition builder UI
+# UI for conditions
 with st.expander("➕ Add Condition Group", expanded=True):
     for i, condition in enumerate(st.session_state.conditions):
-        col1, col2, col3, col4, col5 = st.columns([2, 2, 3, 2, 1])
+        col1, col2, col3, col4 = st.columns([2, 2, 3, 1])
         
         with col1:
             column = st.selectbox(
-                "Column",
-                options=list(columns.keys()),
-                key=f"col_{i}"
-            )
+                "Column", list(columns.keys()), key=f"col_{i}")
+            condition['column'] = column
         
         with col2:
             operator = st.selectbox(
-                "Operator",
-                options=OPERATORS[columns[column]['type']],
-                key=f"op_{i}"
-            )
+                "Operator", OPERATORS[columns[column]['type']], key=f"op_{i}")
+            condition['operator'] = operator
         
         with col3:
-            value = get_value_input(columns[column]['type'], operator)
+            value = get_value_input(columns[column]['type'], operator, i)
+            condition['value'] = value
         
         with col4:
-            if i > 0:
-                logic = st.selectbox(
-                    "Logic",
-                    ['AND', 'OR'],
-                    key=f"logic_{i}"
-                )
-        
-        with col5:
             st.button("❌", on_click=remove_condition, args=(i,), key=f"del_{i}")
 
     st.button("Add Condition", on_click=add_condition)
@@ -109,36 +82,27 @@ with st.expander("➕ Add Condition Group", expanded=True):
 # Query construction
 def build_where_clause():
     clauses = []
-    for i, condition in enumerate(st.session_state.conditions):
+    for condition in st.session_state.conditions:
         col = condition['column']
         op = condition['operator']
         val = condition['value']
-        logic = condition['logic'] if i > 0 else ''
-
-        if not col or not op:
+        
+        if not col or not op or not val:
             continue
-
-        # Handle NULL values
-        if op == 'IS NULL':
-            clauses.append(f"{logic} {col} IS NULL")
-            continue
-
-        # Handle value formatting
-        if val:
-            if op in ['IN', 'NOT IN']:
-                values = [f"'{v.strip()}'" if columns[col]['type'] == 'TEXT' else v.strip() 
-                         for v in val.split(',')]
-                val_str = f"({', '.join(values)})"
-            elif op == 'BETWEEN':
-                values = val.split(',')
-                if len(values) == 2:
-                    val_str = f"{values[0].strip()} AND {values[1].strip()}"
+        
+        values = [v.strip() for v in val.split(',')]
+        
+        if op in ['IN', 'NOT IN']:
+            if columns[col]['type'] == 'TEXT':
+                val_str = f"({', '.join(f'\'{v}\'' for v in values)})"
             else:
-                val_str = f"'{val}'" if columns[col]['type'] == 'TEXT' else val
-
-            clauses.append(f"{logic} {col} {op} {val_str}")
-
-    return 'WHERE ' + ' '.join(clauses) if clauses else ''
+                val_str = f"({', '.join(values)})"
+        else:
+            val_str = values[0]
+        
+        clauses.append(f"{col} {op} {val_str}")
+    
+    return 'WHERE ' + ' AND '.join(clauses) if clauses else ''
 
 # Execute and display results
 if st.button("Build Query"):
