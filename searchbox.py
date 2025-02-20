@@ -1,20 +1,42 @@
 import streamlit as st
 
-st.html('''
-<style>
-div[data-testid="stMultiSelect"] [data-baseweb="select"] > div > div {
-    max-height: 114px !important; /* Fix the height */
-    overflow: auto !important;
-}
-</style>
-''')
+def build_sql_query(table_name, filters):
+    query = f"SELECT * FROM {table_name} WHERE 1=1"
+    
+    for column, condition in filters.items():
+        if condition["operator"] == "IN":
+            values = "', '".join(map(str, condition["values"]))
+            query += f" AND {column} IN ('{values}')"
+        elif condition["operator"] == "NOT IN":
+            values = "', '".join(map(str, condition["values"]))
+            query += f" AND {column} NOT IN ('{values}')"
+        elif condition["operator"] in ["=", "!=", ">", "<"]:
+            query += f" AND {column} {condition['operator']} {condition['values'][0]}"
+    
+    return query
 
-available_options = [i for i in range(-1, 10000)]
-c1, c2, c3 = st.columns((1, 2, 1))
-c2.multiselect(
-    label="Select an Option",
-    options=available_options,
-    key="selected_options",
-    format_func=lambda x: "All" if x == -1 else f"Option {x}",
-)
-st.write(st.session_state["selected_options"])
+st.title("SQL Query Builder")
+
+table_name = st.text_input("Enter Table Name", "Employees")
+
+filters = {}
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    column_name = st.text_input("Enter Column Name")
+
+with col2:
+    operator = st.selectbox("Select Operator", ["IN", "NOT IN", "=", "!=", ">", "<"])
+
+with col3:
+    values_input = st.text_area("Enter Values (comma separated)")
+
+if st.button("Generate Query"):
+    values = [v.strip() for v in values_input.split(",") if v.strip()]
+    
+    if column_name and values:
+        filters[column_name] = {"operator": operator, "values": values}
+    
+    query = build_sql_query(table_name, filters)
+    st.code(query, language="sql")
