@@ -1,37 +1,37 @@
 import streamlit as st
 from condition_tree import condition_tree
+import re
 
-# Correct dictionary-based field configuration
+# Define configuration for the condition tree
 config = {
     'fields': {
         'name': {
             'label': 'Name',
             'type': 'string',
-            'operators': ["equal", "not_equal", "in", "not_in"]  # Required
+            'operators': ["equal", "not_equal", "in", "not_in"]
         },
         'age': {
             'label': 'Age',
             'type': 'number',
-            'operators': ["equal", "not_equal", "less", "less_or_equal", "greater", "greater_or_equal", "in", "not_in"],
-            'fieldSettings': {
-                'min': 0
-            }
-        },
-        'like_tomatoes': {
-            'label': 'Likes tomatoes',
-            'type': 'boolean',
-            'operators': ["equal"]  # Required
+            'operators': ["equal", "not_equal", "less", "less_or_equal", "greater", "greater_or_equal", "in", "not_in"]
         }
     }
 }
 
-# Render condition tree with proper config
-return_val = condition_tree(
-    config=config,
-    return_type='sql',
-    key='my_unique_key'
-)
+# Render condition tree
+generated_sql = condition_tree(config=config, return_type='sql', key='condition_tree')
 
-# Display generated SQL
-if return_val:
-    st.code(return_val)
+# Function to modify SQL query
+def modify_sql_query(query):
+    # Replace `==` with `ANY` when comma-separated values are present
+    query = re.sub(r"(\w+)\s*=\s*'([^']*,[^']*)'", r"\1 ANY ('\2')", query)
+    
+    # Replace `!=` with `NOT IN` when comma-separated values are present
+    query = re.sub(r"(\w+)\s*!=\s*'([^']*,[^']*)'", r"\1 NOT IN ('\2')", query)
+
+    return query
+
+# Modify and display the updated SQL query
+if generated_sql:
+    modified_sql = modify_sql_query(generated_sql)
+    st.code(modified_sql)
