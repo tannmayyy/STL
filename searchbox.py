@@ -1,21 +1,22 @@
-import re
+import os
+import shutil
 
-def modify_sql_query(query):
-    if not query or not isinstance(query, str):
-        return ""
+# Define source and destination paths
+source_root = r"C:5"
+destination = r"C:\UM"
 
-    # Replace `=` with `ANY (ARRAY[...])` and properly format values
-    query = re.sub(
-        r"(\w+)\s*=\s*'([^']*,[^']*)'",
-        lambda m: f"{m.group(1)} = ANY (ARRAY[{', '.join([f''' '{v.strip()}' '''.strip() for v in m.group(2).split(',')])}])",
-        query
-    )
+# Ensure destination folder exists
+os.makedirs(destination, exist_ok=True)
 
-    # Replace `!=` or `<>` with `NOT IN (...)` and properly format values
-    query = re.sub(
-        r"(\w+)\s*<>?\s*'([^']*,[^']*)'",
-        lambda m: f"{m.group(1)} NOT IN ({', '.join([f''' '{v.strip()}' '''.strip() for v in m.group(2).split(',')])})",
-        query
-    )
+# Traverse the directory structure
+for root, dirs, files in os.walk(source_root):
+    for file in files:
+        if file.lower().endswith(".ppm"):  # Check if file is a PPM copy
+            source_file = os.path.join(root, file)
+            destination_file = os.path.join(destination, file)
 
-    return query
+            # Copy the file to the destination
+            shutil.copy2(source_file, destination_file)
+            print(f"Copied: {source_file} -> {destination_file}")
+
+print("All PPM copies have been successfully copied.")
