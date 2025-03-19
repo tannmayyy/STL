@@ -13,7 +13,6 @@ http {
         server_name www.company.com;
 
         location /dassp/ {
-            rewrite ^/dassp(/.*)$ $1 break;
             proxy_pass http://streamlit_backend/;
             proxy_redirect off;
 
