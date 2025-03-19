@@ -1,0 +1,12 @@
+steps to add file 
+
+sudo nano /etc/nginx/nginx.conf
+
+
+
+restart using this:-
+sudo nginx -t  # Test for syntax errors
+sudo systemctl restart nginx  # Restart Nginx to apply changes
+
+
+
