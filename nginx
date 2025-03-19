@@ -10,9 +10,13 @@ http {
 
     server {
         listen 80;
+        server_name www.company.com;
 
-        location / {
-            proxy_pass http://streamlit_backend;
+        location /dassp/ {
+            rewrite ^/dassp(/.*)$ $1 break;
+            proxy_pass http://streamlit_backend/;
+            proxy_redirect off;
+
             proxy_set_header Host $host;
             proxy_set_header X-Real-IP $remote_addr;
             proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
